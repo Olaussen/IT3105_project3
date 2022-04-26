@@ -3,19 +3,23 @@ import matplotlib.pyplot as plt
 from Acrobat import Acrobat
 from NeuralNetwork import Neural_Network
 from CoarseCoder import CoarseCoder
+import tensorflow as tf
+import numpy as np
 
 
 class ReinforcementLearner():
 
     def __init__(self, episodesToRun, game):
-
         self.episodesToRun = episodesToRun
         self.game = game
         self.state = None
         self.seen = False
-        self.discount = 0.99
-        self.epsilon = 0.01
-        self.epsilondecay = 1
+        self.discount = 0.9
+        self.epsilon = 1
+        self.epsilondecay = 0.9
+        random.seed(42)
+        tf.random.set_seed(42)
+        np.random.seed(42)
 
     #Returns best action according to network with value
     #If all values are equally good, return a random one with value
@@ -34,8 +38,11 @@ class ReinforcementLearner():
             print(evaluations)
             self.seen = True
 
+        #print(evaluations)
 
-        if (len(set(seen)) > 1) and random.uniform(0,1) < self.epsilon:
+
+        if (len(set(seen)) > 1) and random.uniform(0,1) > self.epsilon:
+            #print("hi")
             key = max(evaluations, key=evaluations.get)
             return int(key), evaluations[key]
         else:
@@ -76,7 +83,7 @@ class ReinforcementLearner():
             y_train = []
 
             #Get best action given state
-            action = self.getBestNetworkAction(encodedState)[0]
+            action, prevActionValue = self.getBestNetworkAction(encodedState)
 
             while self.game.running():
                 
@@ -99,12 +106,13 @@ class ReinforcementLearner():
                 stateToUpdate = [action]
                 stateToUpdate.extend(encodedState)
                 #if (reward > 0): nextActionValue = 0
+                #error = prevActionValue + (0.2*(reward + (self.discount * nextActionValue) - prevActionValue))
                 error = reward + (self.discount * nextActionValue)
 
                 #self.network.train(stateToUpdate, error)
-                if reward == 0:
-                    x_train.append(stateToUpdate)
-                    y_train.append(int(error))
+                #if reward == -1:
+                x_train.append(stateToUpdate)
+                y_train.append(int(error))
                 
                 #Update for next loop
                 action = nextAction
@@ -112,19 +120,37 @@ class ReinforcementLearner():
                 times += 1
                 summer += 1
 
-                #if times == 1000:
-                #    break
+                if times == 1000:
+                    break
             
+            new_x_train = []
+            new_y_train = []
+
+            for z in range(0, len(x_train)):
+                if x_train[z] not in new_x_train:
+                    new_x_train.append(x_train[z])
+                    new_y_train.append(y_train[z])
+                else:
+                    key = self.search(new_x_train, x_train[z])
+                    new_y_train[key] = (new_y_train[key] + y_train[z])/2
+
             self.network.train(x_train, y_train)
+            print("training")
             episodes.append(times)
             print("Played game: " + str(x))
             print("Timesteps to win: " + str(times))
             print("Avg. timesteps to win: " + str(summer/len(episodes)))
 
-            #if times < 100:
-            #    self.game.visualizeGame(save_animation=False)
+            if times < 100:
+                self.game.visualizeGame(save_animation=False)
 
         self.showDevelopment(episodes)
+
+    def search(self, train, key):
+
+        for x in range(0, len(train)):
+            if train[x] == key:
+                return x
 
 
     def showDevelopment(self, stats):

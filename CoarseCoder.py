@@ -1,15 +1,15 @@
 import numpy as np
-import random
+import random, math
 
 class CoarseCoder():
 
     def __init__(self):
 
-        self.tilings = 2
-        self.bins = [[7, 7, 7, 7], [7, 7, 7, 7]] #Bins per features
-        self.offsets = [[0, 0, 0, 0], [0.2, 0.2, 0.2, 0.2]] #Offsets per dimension
+        self.tilings = 1
+        self.bins = [[10, 10, 10, 10], [10, 10, 10, 10], [100, 100, 100, 100], [30, 30, 30, 30]] #Bins per features
+        self.offsets = [[0, 0, 0, 0], [0, 0, 0, 0], [0.5, 0.5, 0.5, 0.5], [0.23, 0.44, 0.32, 1.4]] #Offsets per dimension
         self.features = 4
-        self.feature_ranges = [[-10, 10], [-10, 10],[-10, 10], [-10, 10]]
+        self.feature_ranges = [[-10, 10], [-10, 10], [-10, 10], [-10, 10]]
 
     def initializeTiling(self):
 
@@ -42,7 +42,14 @@ class CoarseCoder():
                 tiling = x[y]
                 encoding = np.digitize(feature, tiling)
                 codings.append(encoding)
-        
-        return codings
 
+        #Used for testing non-tiling based approach
+        '''takeover = []
+
+        for x in state:
+            takeover.append(round(x*10)) #100
+        
+        print(takeover)
+        return takeover'''
+        return codings
             

@@ -1,13 +1,12 @@
 import math
 import random
-from turtle import color
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from Parameters import Parameters
 
-class Acrobat():
-    def __init__(self):
-        pass # initialize() called from learner
+params = Parameters()
+
+class Acrobat:
 
     def initialize(self):        
         if hasattr(self, 'geometryAllGames'): # save geometry from last run
@@ -17,20 +16,9 @@ class Acrobat():
         self.geometryCurrentGame = []
 
         self.angle1 = 0
-        self.rotVel1 = 0
         self.angle2 = 0
-        self.rotVel2 = 0
-        self.phi2 = 0
-        self.m2 = 1
-        self.L1 = 1
-        self.Lc2 = 1/2
-        self.g = 9.8
-        self.m1 = 1
-        self.Lc1 = 1/2
-        self.d2 = 0
-        self.F = 0
-        self.timestep = 0.05 * 4
-        self.L2 = 1
+        self.vel1 = 0
+        self.vel2 = 0
         self.angle3 = 0
         self.xp1 = 10
         self.xp2 = 0
@@ -39,100 +27,106 @@ class Acrobat():
         self.xtip = 0
         self.ytip = 0
         
-        self.ygoal = self.yp1 + self.L2 
+        self.ygoal = self.yp1 + params.pole_two_length
 
-        self.makeAction(0)
-
-    def currentState(self):
-        return [self.angle1, self.rotVel1, self.angle2, self.rotVel2]
-
-    def currentGeometry(self):
-        return [self.xp2, self.yp2, self.xtip, self.ytip] # p1 constant
+    def current_state(self) -> tuple:
+        return (self.angle1, self.vel1, self.angle2, self.vel2)
     
-    def running(self):
-        return self.ytip < self.ygoal
-        #return abs(self.angle2) < (math.pi/2) # debugging
+    def is_end_state(self) -> bool:
+        return self.ytip >= self.ygoal
 
-    def makeAction(self, action):
+    def perform_action(self, force: int):
 
-        #Avoids sending negative values into neural network
-        if action == 2:
-            action == -1
-
-        self.F = action
+        mass1 = params.pole_one_mass
+        mass2 = params.pole_two_length
+        length1 = params.pole_one_length
+        length2 = params.pole_two_length
+        center1 = length1 / 2
+        center2 = length2 / 2
+        gravity = params.gravity
+        timestep = params.timestep
 
         # ok
-        self.phi2 = self.m2 * self.Lc2 * self.g * math.cos(self.angle1 + self.angle2 - (math.pi/2))
+        phi2 =  mass2 * center2 *  gravity * math.cos(self.angle1 + self.angle2 - (math.pi/2))
 
         # small change for breaking over lines
-        self.phi1 = (-self.m2 * self.L1 * self.Lc2 * self.rotVel2**2 * math.sin(self.angle2)) \
-        - (2 * self.m2 * self.L1 * self.Lc2 * self.rotVel2 * self.rotVel1 * math.sin(self.angle2)) \
-        + (((self.m1 * self.Lc1) + (self.m2 * self.L1)) * self.g * math.cos(self.angle1 - (math.pi/2))) + self.phi2
+        phi1 = (-mass2 * length1 * center2 * self.vel2**2 * math.sin(self.angle2)) \
+        - (2 * mass2 * length1 * center2 * self.vel2 * self.vel1 * math.sin(self.angle2)) \
+        + (((mass1 * center1) + (mass2 * length1)) * gravity * math.cos(self.angle1 - (math.pi/2))) + phi2
 
         # ok
-        tmp = self.Lc2**2 + (self.L1 * self.Lc2 * math.cos(self.angle2))
-        self.d2 = (self.m2 * tmp) + 1
+        inner = center2**2 + (length1 * center2 * math.cos(self.angle2))
+        d2 = (mass2 * inner) + 1
 
         # ok
-        tmp1 = self.L1**2 + self.Lc2**2 + (2*self.L1*self.Lc2*math.cos(self.angle2))
-        self.d1 = (self.m1 * self.Lc1**2) + (self.m2 * tmp1) + 2
+        inner = length1**2 + center2**2 + (2 * length1 * center2 * math.cos(self.angle2))
+        d1 = (mass1 * center1**2) + (mass2 * inner) + 2
 
         
         # ok
-        tmp2 = (self.m2 * self.Lc2**2) + (1 - (self.d2**2/self.d1))
-        tmp3 = self.F + ((self.d2/self.d1)*self.phi1) - (self.m2 * self.L1 * self.Lc2 * self.rotVel1**2 * math.sin(self.angle2)) - self.phi2
-        self.rotAcc2 = (1/tmp2) * tmp3
-        self.rotAcc1 = -(((self.d2*self.rotAcc2) + self.phi1)/self.d1)
+        inner1 = (mass2 * center2**2) + (1 - (d2**2 / d1))
+        inner2 = force + ((d2 / d1) * phi1) - (mass2 * length1 * center2 * self.vel1**2 * math.sin(self.angle2)) - phi2
+        acc2 = (1 / inner1) * inner2
+        acc1 = -((d2 * acc2) + phi1) / d1
         
 
         # ok
-        self.rotVel2 = self.rotVel2 + (self.timestep * self.rotAcc2)
-        self.rotVel1 = self.rotVel1 + (self.timestep * self.rotAcc1)
-        self.angle2 = self.angle2 + (self.timestep * self.rotVel2)
-        self.angle1 = self.angle1 + (self.timestep * self.rotVel1)
+        self.vel2 += timestep * acc2
+        self.vel1 += timestep * acc1
+        self.angle2 += timestep * self.vel2
+        self.angle1 += timestep * self.vel1
 
         # ok
         self.angle3 = self.angle1 + self.angle2
-        self.xp2 = self.xp1 + (self.L1 * math.sin(self.angle1))
-        self.yp2 = self.yp1 - (self.L1 * math.cos(self.angle1))
-        self.xtip = self.xp2 + (self.L2 * math.sin(self.angle3))
-        self.ytip = self.yp2 - (self.L2 * math.cos(self.angle3))
+        self.xp2 = self.xp1 + (length1 * math.sin(self.angle1))
+        self.yp2 = self.yp1 - (length1 * math.cos(self.angle1))
+        self.xtip = self.xp2 + (length2 * math.sin(self.angle3))
+        self.ytip = self.yp2 - (length2 * math.cos(self.angle3))
 
-        if self.rotVel1 > math.pi*9:
-            self.rotVel1 = math.pi*9
+        if self.vel1 > math.pi * 9:
+            self.vel1 = math.pi * 9
         
-        if self.rotVel1 < -math.pi*9:
-            self.rotVel1 = -math.pi*9
+        if self.vel1 < -math.pi * 9:
+            self.vel1 = -math.pi * 9
 
-        if self.rotVel2 > math.pi*9:
-            self.rotVel2 = math.pi*9
+        if self.vel2 > math.pi * 9:
+            self.vel2 = math.pi * 9
         
-        if self.rotVel2 < -math.pi*9:
-            self.rotVel2 = -math.pi*9
+        if self.vel2 < -math.pi * 9:
+            self.vel2 = -math.pi * 9
 
-        self.geometryCurrentGame.append(self.currentGeometry())
+        if self.angle1 > math.pi * 2:
+            self.angle1 = self.angle1 % math.pi * 2
+        
+        if self.angle1 < -math.pi * 2:
+            self.angle1 = -(self.angle1 % math.pi * 2)
 
-    def possibleActions(self):
-        return [1, 2, 0] #-1 is called 2 so we don't send negative values into neural network
+        if self.angle2 > math.pi * 2:
+            self.angle2 = self.angle2 % math.pi * 2
+        
+        if self.angle2 < -math.pi * 2:
+            self.angle2 = -(self.angle2 % math.pi * 2)
 
-    def reward(self):
-        if self.running():
-            return 0
-        else:
-            return 150
+        self.geometryCurrentGame.append((self.xp2, self.yp2, self.xtip, self.ytip))
 
-    def visualizeGame( self, game=-1, save_animation=True, filename='animation.gif' ):
+    def legal_actions(self) -> tuple:
+        return (params.force, -params.force, 0) #-1 is called 2 so we don't send negative values into neural network
+
+    def reward(self) -> int:
+        return -1
+
+    def visualize_game( self, game=-1, save_animation=True, filename='animation.gif' ):
         c = { # color palette
-            'medium-grey': ( 218/255, 218/255, 218/255),
-            'dark-grey': ( 68/255, 79/255, 85/255),
-            'blue': ( 0/255, 142/255, 194/255),
-            'green': ( 93/255, 184/255, 46/255),
-            'red': ( 237/255, 28/255, 46/255),
-            'orange': ( 255/255, 150/255, 0/255),
-            'yellow': ( 255/255, 213/255, 32/255),
-            'purple': ( 112/255, 48/255, 160/255),
-            'black': ( 0, 0, 0),
-            'white': ( 1, 1, 1)
+            'medium-grey': (218/255, 218/255, 218/255),
+            'dark-grey': (68/255, 79/255, 85/255),
+            'blue': (0/255, 142/255, 194/255),
+            'green': (93/255, 184/255, 46/255),
+            'red': (237/255, 28/255, 46/255),
+            'orange': (255/255, 150/255, 0/255),
+            'yellow': (255/255, 213/255, 32/255),
+            'purple': (112/255, 48/255, 160/255),
+            'black': (0, 0, 0),
+            'white': (1, 1, 1)
         }
         c_ind = ['dark-grey','black', 'red', 'medium-grey', 'white', 'blue']
         
@@ -144,7 +138,7 @@ class Acrobat():
         repeat_last_frame = 50
 
         #self.ygoal
-        max_len = self.L1 + self.L2
+        max_len = params.pole_one_length + params.pole_two_length
         scaled_max_len = max_len*scale_xlim
         x_lim_low = self.xp1-scaled_max_len
         x_lim_high = self.xp1+scaled_max_len        
@@ -157,60 +151,60 @@ class Acrobat():
 
         # create data to plot
         for scene in scenes: # scene: [x2,y2,xt,yt]
-            X.append( [ self.xp1, scene[0], scene[2] ] )
-            Y.append( [ self.yp1, scene[1], scene[3] ] )
+            X.append([self.xp1, scene[0], scene[2]])
+            Y.append([self.yp1, scene[1], scene[3]])
         
         for i in range(repeat_last_frame):
-            X.append( [ self.xp1, scenes[-1][0], scenes[-1][2] ] )
-            Y.append( [ self.yp1, scenes[-1][1], scenes[-1][3] ] )
+            X.append([self.xp1, scenes[-1][0], scenes[-1][2]])
+            Y.append([self.yp1, scenes[-1][1], scenes[-1][3]])
 
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.set(xlim=(x_lim_low, x_lim_high), ylim=(y_lim_low, y_lim_high))
-        ax.axis( 'equal' )
-        ax.axis( 'off' )
+        ax.axis('equal')
+        ax.axis('off')
         ax.get_xaxis().set_ticks([])
         ax.get_yaxis().set_ticks([])
         
         # draw fixed elements
         ax.plot([self.xp1-max_len, self.xp1+max_len], [self.ygoal,self.ygoal], color=c[c_ind[2]], lw=1) # y_limit
         
-        circle0 = plt.Circle( (self.xp1, self.yp1), r_hinge, color=c[c_ind[1]], zorder=5) # border
-        circle1 = plt.Circle( (self.xp1, self.yp1), r_hinge_inner, color=c[c_ind[3]], zorder=5 )
-        ax.add_patch( circle0 )
-        ax.add_patch( circle1 )
+        circle0 = plt.Circle((self.xp1, self.yp1), r_hinge, color=c[c_ind[1]], zorder=5) # border
+        circle1 = plt.Circle((self.xp1, self.yp1), r_hinge_inner, color=c[c_ind[3]], zorder=5)
+        ax.add_patch(circle0)
+        ax.add_patch(circle1)
         
         # draw acrobat
         line = ax.plot(X[0], Y[0], color=c[c_ind[0]], lw=6, zorder=1)[0]
 
         #p2 hinge
-        circle2 = plt.Circle( (X[0][1], Y[0][1]), r_hinge, color=c[c_ind[1]], zorder=5) # border
-        circle3 = plt.Circle( (X[0][1], Y[0][1]), r_hinge_inner, color=c[c_ind[3]], zorder=5 )
-        ax.add_patch( circle2 )
-        ax.add_patch( circle3 )
+        circle2 = plt.Circle((X[0][1], Y[0][1]), r_hinge, color=c[c_ind[1]], zorder=5) # border
+        circle3 = plt.Circle((X[0][1], Y[0][1]), r_hinge_inner, color=c[c_ind[3]], zorder=5)
+        ax.add_patch(circle2)
+        ax.add_patch(circle3)
 
         # tip
-        circle4 = plt.Circle( (X[0][2], Y[0][2]), r_hinge, color=c[c_ind[1]], zorder=5) # border
-        circle5 = plt.Circle( (X[0][2], Y[0][2]), r_hinge_inner, color=c[c_ind[3]], zorder=5 )
-        ax.add_patch( circle4 )
-        ax.add_patch( circle5 )
+        circle4 = plt.Circle((X[0][2], Y[0][2]), r_hinge, color=c[c_ind[1]], zorder=5) # border
+        circle5 = plt.Circle((X[0][2], Y[0][2]), r_hinge_inner, color=c[c_ind[3]], zorder=5)
+        ax.add_patch(circle4)
+        ax.add_patch(circle5)
 
         # progress bar
         w_full = self.xp1 - (self.xp1-max_len)
         height = 2*r_hinge
         w_inner = w_full-2*dx
 
-        rect1 = plt.Rectangle( (self.xp1-max_len+dx, y_lim_low), w_full, height, color=c[c_ind[1]], zorder=1 ) # border
-        rect2 = plt.Rectangle( (self.xp1-max_len+2*dx, y_lim_low+dx), w_inner, height-2*dx, color=c[c_ind[4]],zorder=3 ) # border
-        rect3 = plt.Rectangle( (self.xp1-max_len+2*dx, y_lim_low+dx), 0, height-2*dx, color=c[c_ind[5]],zorder=5 )
+        rect1 = plt.Rectangle((self.xp1-max_len+dx, y_lim_low), w_full, height, color=c[c_ind[1]], zorder=1) # border
+        rect2 = plt.Rectangle((self.xp1-max_len+2*dx, y_lim_low+dx), w_inner, height-2*dx, color=c[c_ind[4]],zorder=3) # border
+        rect3 = plt.Rectangle((self.xp1-max_len+2*dx, y_lim_low+dx), 0, height-2*dx, color=c[c_ind[5]],zorder=5)
         
-        ax.add_patch( rect1 )
-        ax.add_patch( rect2 )
-        ax.add_patch( rect3 )
+        ax.add_patch(rect1)
+        ax.add_patch(rect2)
+        ax.add_patch(rect3)
 
         # progress text
         t_width = len(str(len(scenes)))
         base_txt = 'control step '
-        label = ax.text( self.xp1 + 20*dx, y_lim_low + r_hinge, base_txt + str(0).ljust(t_width) + '/' + str(len(scenes))  , ha='left', va='center', fontsize=12 )
+        label = ax.text(self.xp1 + 20*dx, y_lim_low + r_hinge, base_txt + str(0).ljust(t_width) + '/' + str(len(scenes))  , ha='left', va='center', fontsize=12)
 
         def animate(i):
             line.set_xdata(X[i])
@@ -222,14 +216,13 @@ class Acrobat():
             circle4.center = X[i][2], Y[i][2] # tip
             circle5.center = X[i][2], Y[i][2]
 
-            w_fract = min(1,i/len(scenes))
+            w_fract = min(1, i/len(scenes))
             rect3.set(width=w_fract*w_inner)
 
-            step = min( i,len(scenes) )
+            step = min(i, len(scenes))
             label.set_text(base_txt + str(step).ljust(t_width) + '/' + str(len(scenes)))
 
-        anim = FuncAnimation(
-            fig, animate, interval=100, frames=len(Y)-1)
+        anim = FuncAnimation(fig, animate, interval=100, frames=len(Y)-1)
         
         if save_animation:            
             anim.save(filename)
@@ -243,6 +236,6 @@ if __name__=='__main__':
     a = Acrobat()
     a.initialize()
     for i in range(moves):
-        a.makeAction(random.choice(a.possibleActions()))
-    a.visualizeGame( save_animation=False )
+        a.perform_action(random.choice(a.legal_actions()))
+    a.visualize_game(save_animation=False)
     

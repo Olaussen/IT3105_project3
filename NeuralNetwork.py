@@ -12,19 +12,20 @@ class Neural_Network():
 
         model = tf.keras.Sequential()
 
-        initializer = tf.keras.initializers.RandomNormal(mean=0.2, stddev=1.2, seed=40)
-
+        #initializer = tf.keras.initializers.RandomNormal(mean=0.2, stddev=1.2, seed=40)
+        #initializer = tf.keras.initializers.RandomNormal()#mean=5, stddev=4, seed=40)
 
         #Input layer
-        model.add(tf.keras.layers.Dense(9, input_dim=9, activation="relu", kernel_initializer=initializer))
+        model.add(tf.keras.layers.Dense(5, input_dim=5, activation="relu")) #kernel_initializer = initializer))
 
         #Hidden layer
-        #model.add(tf.keras.layers.Dense(16, activation="relu"))
+        model.add(tf.keras.layers.Dense(5, activation="relu")) #kernel_initializer = initializer))
+        #model.add(tf.keras.layers.Dense(64, activation="relu")) #kernel_initializer = initializer))
 
         #Output layer
-        model.add(tf.keras.layers.Dense(1, activation="relu", kernel_initializer=initializer))
+        model.add(tf.keras.layers.Dense(1, activation="sigmoid")) #kernel_initializer = initializer))
 
-        opt = tf.keras.optimizers.Adam(learning_rate=0.01)
+        opt = tf.keras.optimizers.Adam()
         model.compile(loss=tf.keras.losses.MeanSquaredError(), optimizer=opt, metrics=[tf.keras.metrics.Accuracy()])
         self.network = model
         model.summary()
@@ -39,5 +40,5 @@ class Neural_Network():
     
     def train(self, state, error):
 
-        self.network.fit(np.array(state), error, epochs=10, verbose=1)
+        self.network.fit(np.array(state), error, epochs=1, verbose=1)
 
