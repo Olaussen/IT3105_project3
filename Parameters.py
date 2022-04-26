@@ -6,6 +6,7 @@ class Parameters:
         self.num_episodes = 100
         self.learning_rate = 0.1
         self.network_dims = (5,) # has to be tuple
+        self.network_activations = ("relu",) # has to be tuple and same length as network_dims
         self.discount = 0.9
         self.epsilon = 0.1
         self.epsilon_decay = 0.9

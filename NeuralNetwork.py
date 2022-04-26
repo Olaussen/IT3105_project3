@@ -1,41 +1,36 @@
 import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
+from Parameters import Parameters
 tf.compat.v1.disable_eager_execution() #Makes tensorflow go faster
 
-class Neural_Network():
+params = Parameters()
+
+class NeuralNetwork():
 
     def __init__(self):
+        self.initialize()
 
-        self.network = None
-
-    def initializeNetwork(self):
-
-        model = tf.keras.Sequential()
-
-        #initializer = tf.keras.initializers.RandomNormal(mean=0.2, stddev=1.2, seed=40)
-        #initializer = tf.keras.initializers.RandomNormal()#mean=5, stddev=4, seed=40)
+    def initialize(self):
+        model = Sequential()
 
         #Input layer
-        model.add(tf.keras.layers.Dense(5, input_dim=5, activation="relu")) #kernel_initializer = initializer))
-
-        #Hidden layer
-        model.add(tf.keras.layers.Dense(5, activation="relu")) #kernel_initializer = initializer))
-        #model.add(tf.keras.layers.Dense(64, activation="relu")) #kernel_initializer = initializer))
-
+        model.add(Dense(5, input_dim=5, activation="relu"))
+        #Hidden layers
+        for i in range(len(params.network_dims)):
+            model.add(Dense(params.network_dims[i], activation=params.network_activations[i]))
         #Output layer
-        model.add(tf.keras.layers.Dense(1, activation="sigmoid")) #kernel_initializer = initializer))
+        model.add(Dense(1, activation="sigmoid"))
 
-        opt = tf.keras.optimizers.Adam()
-        model.compile(loss=tf.keras.losses.MeanSquaredError(), optimizer=opt, metrics=[tf.keras.metrics.Accuracy()])
-        self.network = model
+        model.compile(loss=MeanSquaredError(), optimizer=Adam(params.learning_rate))
         model.summary()
+        self.network = model
 
     def evaluate(self, state, action):
-
-        action = [action]
-        action.extend(state)
-        state = np.asarray(action)
-
+        state = np.asarray([action] + state)
         return self.network.predict(np.array([state,]))
     
     def train(self, state, error):

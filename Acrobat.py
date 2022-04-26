@@ -3,7 +3,6 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from Parameters import Parameters
-
 params = Parameters()
 
 class Acrobat:
@@ -115,7 +114,7 @@ class Acrobat:
     def reward(self) -> int:
         return -1
 
-    def visualize_game( self, game=-1, save_animation=True, filename='animation.gif' ):
+    def visualize_game(self, game=-1, save_animation=True, filename='animation.gif'):
         c = { # color palette
             'medium-grey': (218/255, 218/255, 218/255),
             'dark-grey': (68/255, 79/255, 85/255),
