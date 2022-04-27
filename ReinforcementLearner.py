@@ -73,7 +73,6 @@ class ReinforcementLearner():
 
         #Play the game until all episodes are run
         for x in range(params.num_episodes):
-
             self.epsilon *= params.epsilon_decay
             
             #Initialize a new game
@@ -91,10 +90,14 @@ class ReinforcementLearner():
 
             #Get best action given state
             action, _ = self.getBestNetworkAction(encodedState)
+            everyfour = -1
 
-            while self.game.running():
-                
+            while self.game.running() and times < params.max_limit:
                 self.game.makeAction(action)
+                everyfour += 1
+                # Only changes the action every fourth timestep
+                if not everyfour % 4 == 0:
+                    continue
 
                 #Get current state
                 self.state = self.game.currentState()
@@ -105,19 +108,15 @@ class ReinforcementLearner():
 
                 #Get best action given state
                 nextAction, nextActionValue = self.getBestNetworkAction(nextEncodedState)
-
                 #Get reward
                 reward = self.game.reward()
 
                 #Train chosen state on reward + discount * value of the next best move
                 stateToUpdate = [action]
                 stateToUpdate.extend(encodedState)
-                #if (reward > 0): nextActionValue = 0
-                #error = prevActionValue + (0.2*(reward + (self.discount * nextActionValue) - prevActionValue))
                 error = reward + (params.discount * nextActionValue)
 
                 #self.network.train(stateToUpdate, error)
-                #if reward == -1:
                 x_train.append(stateToUpdate)
                 y_train.append(int(error))
                 
@@ -126,14 +125,11 @@ class ReinforcementLearner():
                 encodedState = nextEncodedState
                 times += 1
                 summer += 1
-
-                #if times == 1000:
-                #    break
             
             new_x_train = []
             new_y_train = []
 
-            for z in range(0, len(x_train)):
+            for z in range(len(x_train)):
                 if x_train[z] not in new_x_train:
                     new_x_train.append(x_train[z])
                     new_y_train.append(y_train[z])
@@ -142,28 +138,25 @@ class ReinforcementLearner():
                     new_y_train[key] = (new_y_train[key] + y_train[z])/2
 
             self.network.train(x_train, y_train)
-            print("training")
             episodes.append(times)
             print("Played game: " + str(x))
-            print("Timesteps to win: " + str(times))
-            print("Avg. timesteps to win: " + str(summer/len(episodes)))
-
-            #if times < 100:
-            #    self.game.visualizeGame(save_animation=False)
+            print("Actions to win: " + str(times))
+            print("Avg. Actions to win: " + str(summer/len(episodes)))
 
         self.showDevelopment(episodes)
 
-    def search(self, train, key):
-
-        for x in range(0, len(train)):
+    def search(self, train: list, key: str):
+        """
+            
+        """
+        for x in range(len(train)):
             if train[x] == key:
                 return x
 
 
-    def showDevelopment(self, stats):
+    def showDevelopment(self, stats: list):
         episodes = []
-        
-        for x in range(0, len(stats)):
+        for x in range(len(stats)):
             episodes.append(x+1)
 
         plt.plot(episodes, stats)

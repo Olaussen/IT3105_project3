@@ -3,13 +3,14 @@ class Parameters:
 
     def __init__(self):
         # Learning parameters
-        self.num_episodes = 100
+        self.num_episodes = 50
         self.learning_rate = 0.001
         self.network_dims = (5,) # has to be tuple
         self.network_activations = ("relu",) # has to be tuple and same length as network_dims
         self.discount = 0.95
         self.epsilon = 1
         self.epsilon_decay = 0.9
+        self.max_limit = 1000
 
         # Coarse coder parameters
         self.tilings = 3
@@ -22,5 +23,5 @@ class Parameters:
         self.gravity = 9.8
         self.pole_one_length, self.pole_two_length = 1, 1 # one | two
         self.pole_one_mass, self.pole_two_mass = 1, 1     # one | two
-        self.timestep = 0.05 * 4
+        self.timestep = 0.05
         self.force = 1

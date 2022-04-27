@@ -42,8 +42,6 @@ class Acrobat:
         
         self.ygoal = self.yp1 + self.L2 
 
-        self.makeAction(0)
-
     def currentState(self):
         """
             Returns the current state of the world. This is represented by the angles of the poles and their respective anglular velocities.
@@ -164,8 +162,7 @@ class Acrobat:
         x_lim_high = self.xp1+scaled_max_len        
         y_lim_low = self.yp1-max_len*scale_ylim
         y_lim_high = max(self.yp1+max_len*scale_ylim, self.ygoal*scale_ylim)
-        
-        scenes = self.geometryAllGames[game] if game!=-1 else self.geometryCurrentGame
+        scenes = self.geometryAllGames[game] if game!=-1 else sorted(self.geometryAllGames, key=len)[0]
         X = []
         Y = []
 
@@ -240,10 +237,10 @@ class Acrobat:
             rect3.set(width=w_fract*w_inner)
 
             step = min( i,len(scenes) )
-            label.set_text(base_txt + str(step).ljust(t_width) + '/' + str(len(scenes)))
+            label.set_text("Action amount: " + str(len(scenes) / 4) + "\n" + base_txt + str(step).ljust(t_width) + '/' + str(len(scenes)))
 
         anim = FuncAnimation(
-            fig, animate, interval=100, frames=len(Y)-1)
+            fig, animate, interval=25, frames=len(Y)-1)
         
         if save_animation:            
             anim.save(filename)
