@@ -3,8 +3,14 @@ import matplotlib.pyplot as plt
 from Acrobat import Acrobat
 from NeuralNetwork import NeuralNetwork
 from CoarseCoder import CoarseCoder
+import tensorflow as tf
+import numpy as np
 from Parameters import Parameters
+random.seed(42)
+tf.random.set_seed(42)
+np.random.seed(42)
 params = Parameters()
+
 
 class ReinforcementLearner():
 
@@ -16,111 +22,152 @@ class ReinforcementLearner():
 
     #Returns best action according to network with value
     #If all values are equally good, return a random one with value
-    def get_best_network_action(self, state: tuple):
-        actions = self.game.legal_actions()
+    def getBestNetworkAction(self, encodedState: list):
+        """
+            Will return the best action according to the network trained to far. 
+            If the actions are seen as equal, it will chose at random.
+        """
+        actions = self.game.possibleActions()
         evaluations = {}
         seen = []
 
-        for action in actions:
-            eval = self.network.evaluate(state, action)
-            evaluations[str(action)] = eval
+        for x in actions:
+            eval = self.network.evaluate(encodedState, x)
+            evaluations[str(x)] = eval
             seen.append(float(eval))
 
         if not self.seen:
             print(evaluations)
             self.seen = True
 
-        if (len(set(seen)) > 1) and random.random() > self.epsilon:
+        #print(evaluations)
+
+
+        if (len(set(seen)) > 1) and random.uniform(0,1) > self.epsilon:
+            #print("hi")
             key = max(evaluations, key=evaluations.get)
             return int(key), evaluations[key]
-        action = random.choice(actions)
-        return action, evaluations[str(action)]
+        else:
+            b = random.choice(actions)
+            return b, evaluations[str(b)]
 
 
     def run(self):
-        #Create a neural network and coarse coder
+        """
+            Main run rutine for the algorithm. Will run through an amount of episodes set in Parameters.py, 
+            and the network will try to learn the best possible response to different states. Epsilon is decayed for each
+            episode, reducing the amount of randomness each iteration. The data is stored periodically.
+        """
+
+        #Create a neural network
         self.network = NeuralNetwork()
+        self.network.initialize()
+
+        #Create encoder
         encoder = CoarseCoder()
+        encoder.initialize()
+
         #Keeps track of steps to win for stat display at the end
         episodes = []
-        total = 0
+        summer = 0
 
         #Play the game until all episodes are run
-        for i in range(params.num_episodes):
-            timesteps_to_win = 0
-            x_train = []
-            y_train = []
+        for x in range(params.num_episodes):
+
+            self.epsilon *= params.epsilon_decay
+            
             #Initialize a new game
             self.game.initialize() 
-            #Get current state
-            self.state = self.game.current_state()
-            #Encode state with coarse coding
-            encoded_state = encoder.get_encoding(self.state)
-            stored_encoded = encoded_state
-            #Get best action given state
-            action, _ = self.get_best_network_action(encoded_state)
+            times = 0
 
-            while not self.game.is_end_state():
-                self.game.perform_action(action)
+            #Get current state
+            self.state = self.game.currentState()
+
+            #Encode state with coarse coding
+            cutState = self.state
+            encodedState = encoder.getEncoding(cutState)
+            x_train = []
+            y_train = []
+
+            #Get best action given state
+            action, _ = self.getBestNetworkAction(encodedState)
+
+            while self.game.running():
+                
+                self.game.makeAction(action)
+
                 #Get current state
-                self.state = self.game.current_state()
+                self.state = self.game.currentState()
+
                 #Encode state with coarse coding
-                encoded_state = encoder.get_encoding(self.state)
+                cutState = self.state
+                nextEncodedState = encoder.getEncoding(cutState)
+
                 #Get best action given state
-                next_action, next_action_evaluation = self.get_best_network_action(encoded_state)
+                nextAction, nextActionValue = self.getBestNetworkAction(nextEncodedState)
+
                 #Get reward
                 reward = self.game.reward()
+
                 #Train chosen state on reward + discount * value of the next best move
-                error = reward + (params.discount * next_action_evaluation)
-                x_train.append([action] + stored_encoded)
+                stateToUpdate = [action]
+                stateToUpdate.extend(encodedState)
+                #if (reward > 0): nextActionValue = 0
+                #error = prevActionValue + (0.2*(reward + (self.discount * nextActionValue) - prevActionValue))
+                error = reward + (params.discount * nextActionValue)
+
+                #self.network.train(stateToUpdate, error)
+                #if reward == -1:
+                x_train.append(stateToUpdate)
                 y_train.append(int(error))
                 
                 #Update for next loop
-                action = next_action
-                timesteps_to_win += 1
-                stored_encoded = encoded_state
-                total += 1
+                action = nextAction
+                encodedState = nextEncodedState
+                times += 1
+                summer += 1
 
-                if timesteps_to_win == 1000:
-                    break
+                #if times == 1000:
+                #    break
             
             new_x_train = []
             new_y_train = []
-            for i in range(len(x_train)):
-                data = x_train[i]
-                label = y_train[i]
-                if data not in new_x_train:
-                    new_x_train.append(data)
-                    new_y_train.append(label)
+
+            for z in range(0, len(x_train)):
+                if x_train[z] not in new_x_train:
+                    new_x_train.append(x_train[z])
+                    new_y_train.append(y_train[z])
                 else:
-                    key = self.search(new_x_train, data)
-                    new_y_train[key] = (new_y_train[key] + label)/2
+                    key = self.search(new_x_train, x_train[z])
+                    new_y_train[key] = (new_y_train[key] + y_train[z])/2
 
             self.network.train(x_train, y_train)
-            episodes.append(timesteps_to_win)
-            print(f"Played game: {i +1}")
-            print(f"Timesteps to win: {timesteps_to_win}")
-            print(f"Avg. timesteps to win: {total / len(episodes)}\n")
+            print("training")
+            episodes.append(times)
+            print("Played game: " + str(x))
+            print("Timesteps to win: " + str(times))
+            print("Avg. timesteps to win: " + str(summer/len(episodes)))
 
-            if timesteps_to_win < 100:
-                self.game.visualize_game(save_animation=False)
+            #if times < 100:
+            #    self.game.visualizeGame(save_animation=False)
 
-            self.epsilon *= params.epsilon_decay
-
-        self.show_development(episodes)
+        self.showDevelopment(episodes)
 
     def search(self, train, key):
-        for i in range(len(train)):
-            if train[i] == key:
-                return i
 
-    def show_development(self, stats):
+        for x in range(0, len(train)):
+            if train[x] == key:
+                return x
+
+
+    def showDevelopment(self, stats):
         episodes = []
         
-        for i in range(len(stats)):
-            episodes.append(i)
+        for x in range(0, len(stats)):
+            episodes.append(x+1)
 
         plt.plot(episodes, stats)
         plt.ylabel("Timesteps")
         plt.xlabel("Episodes")
+        plt.ylim(0, 1000)
         plt.show()
